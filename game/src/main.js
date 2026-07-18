@@ -447,7 +447,8 @@ function verbFor(st, e) {
 
 // ---------- UI 点击 ----------
 function handleUIClick() {
-  if (!mouse.clicked) return false;
+  // 注意：由 canvas 的 click 事件驱动（真实按下-松开），不能用 mouse.clicked 门控——
+  // 真人按键间隔跨越多帧，clicked 标志会在 endFrame 被清掉导致穿透。
   const p = st.player;
   for (let i = hit.length - 1; i >= 0; i--) {
     const h = hit[i];
