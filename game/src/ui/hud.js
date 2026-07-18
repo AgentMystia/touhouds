@@ -133,15 +133,15 @@ export function drawHUD(ctx, st, W, H, tNow) {
     ctx.fillStyle = '#fff'; ctx.font = `bold 13px ${FONT}`;
     ctx.fillText(Math.ceil(cd), sx + 22, sy + 22);
   }
-  if (hover) setTooltip(ctx, '夜雀之歌 [空格]\n眩晕周围敌人4秒\n消耗15理智 · 冷却30秒');
+  if (hover) setTooltip(ctx, '夜雀之歌 [C]\n眩晕周围敌人4秒\n消耗15理智 · 冷却30秒');
 
   // ---- 制作按钮/面板 ----
   const cbx = 16, cby = H - 130;
   const ch = region(cbx, cby, 110, 40, { type: 'craft_toggle' });
   ctx.fillStyle = ch || ui.craftOpen ? 'rgba(70,50,90,0.95)' : 'rgba(35,26,45,0.9)';
   roundRect(ctx, cbx, cby, 110, 40, 8);
-  ctx.fillStyle = '#ffe0a0'; ctx.font = `18px ${FONT}`; ctx.textAlign = 'center';
-  ctx.fillText('制 作', cbx + 55, cby + 21);
+  ctx.fillStyle = '#ffe0a0'; ctx.font = `17px ${FONT}`; ctx.textAlign = 'center';
+  ctx.fillText('制作 Tab', cbx + 55, cby + 21);
   if (ui.craftOpen) drawCraftPanel(ctx, st, W, H);
 
   // ---- 交互提示 ----
@@ -184,13 +184,16 @@ export function drawHUD(ctx, st, W, H, tNow) {
     my -= 24;
   }
 
-  // ---- 容器界面 ----
+  // ---- 容器界面（优先绘制并吞点击） ----
   if (ui.chestTarget && !ui.chestTarget.dead) drawChestUI(ctx, st, W, H);
   if (ui.yataiTarget && !ui.yataiTarget.dead) drawYataiUI(ctx, st, W, H);
 
   // ----  tooltip 最后画 ----
   if (ui.tooltip) drawTooltip(ctx, W, H);
 }
+
+// 面板兜底：容器打开时，所有未被更上层命中的点击都不许穿透到世界
+export function anyModalOpen() { return !!(ui.chestTarget || ui.yataiTarget); }
 
 function drawInvRow(ctx, st, inv, x, y, slot, gap, tag) {
   for (let i = 0; i < inv.length; i++) {
@@ -281,10 +284,13 @@ function drawEquip(ctx, st, x, y) {
 function drawCraftPanel(ctx, st, W, H) {
   const p = st.player;
   const tabs = Object.keys(TABS);
-  const px = 16, py = 110, pw = 300;
+  const px = 16, py = 70, pw = 300;      // 面板从顶部附近延伸到底部上方，覆盖整个左侧
   const rowH = 46;
+  const panelH = Math.min(H - py - 90, 40 + 34 + RECIPES.filter(r => r.tab === ui.craftTab).length * rowH);
+  // 面板背景（吞掉点击，防穿透移动）
+  region(px - 6, py - 40, pw + 12, panelH + 50, { type: 'panel' });
   ctx.fillStyle = 'rgba(25,18,35,0.94)';
-  roundRect(ctx, px - 6, py - 40, pw + 12, 420, 10);
+  roundRect(ctx, px - 6, py - 40, pw + 12, panelH + 50, 10);
   // 页签
   let tx = px;
   ctx.font = `14px ${FONT}`;
@@ -299,11 +305,12 @@ function drawCraftPanel(ctx, st, W, H) {
     tx += w + 4;
     if (tx > px + pw - 30) break;
   }
-  // 配方列表
+  // 配方列表（从页签下方开始，面板高度已按数量自适应）
   const benchOk = nearBench(st);
   const list = RECIPES.filter(r => r.tab === ui.craftTab);
-  let ry = py;
+  let ry = py + 10;
   for (const r of list) {
+    if (ry + rowH > py - 40 + panelH) break;  // 超出面板高度截断
     const def = r.out ? ITEMS[r.out] : { name: placeName(r.place), icon: r.place, desc: '' };
     const locked = r.bench === 'kappa' && !benchOk;
     const afford = canAfford(p, r.cost);
@@ -375,6 +382,7 @@ export function interactLabel(st, t) {
 // ---- 容器 ----
 function drawChestUI(ctx, st, W, H) {
   const b = ui.chestTarget;
+  region(W / 2 - 190, H / 2 - 130, 380, 210, { type: 'panel' });
   ctx.fillStyle = 'rgba(25,18,35,0.95)';
   roundRect(ctx, W / 2 - 190, H / 2 - 130, 380, 210, 12);
   ctx.fillStyle = '#ffe0a0'; ctx.font = `18px ${FONT}`; ctx.textAlign = 'center';
@@ -403,6 +411,7 @@ function drawChestUI(ctx, st, W, H) {
 
 function drawYataiUI(ctx, st, W, H) {
   const b = ui.yataiTarget;
+  region(W / 2 - 200, H / 2 - 140, 400, 230, { type: 'panel' });
   ctx.fillStyle = 'rgba(25,18,35,0.95)';
   roundRect(ctx, W / 2 - 200, H / 2 - 140, 400, 230, 12);
   ctx.fillStyle = '#ffe0a0'; ctx.font = `bold 19px ${FONT}`; ctx.textAlign = 'center';
@@ -558,12 +567,14 @@ function drawHelp(ctx, W, H) {
   ctx.fillStyle = '#e0d0e8'; ctx.font = `16px ${FONT}`; ctx.textAlign = 'left';
   const lines = [
     'WASD / 方向键 —— 移动',
-    '鼠标左键 —— 采集 / 砍伐 / 攻击 / 拾取（自动走过去）',
-    '鼠标右键 / E —— 取消 / 关闭界面',
+    '空格 —— 采集 / 拾取 / 互动（按住连续动作）',
+    'F —— 攻击（按住连续攻击）',
+    'C —— 夜雀之歌（眩晕敌人）',
+    'TAB —— 打开 / 关闭制作栏',
+    '鼠标左键 —— 点哪去哪 / 远程交互',
     '数字键 1-8 —— 选中快捷栏（再点装备/吃）',
-    '空格 —— 夜雀之歌（眩晕敌人）',
     'Q —— 快速吃快捷栏第一个食物',
-    'F5 —— 手动存档（每天黎明自动存档）',
+    'E / 右键 —— 关闭界面 · F5 —— 手动存档',
     '',
     '目标：在幻想乡的夜里活下去。',
     '白天采集、钓鱼、备料；夜晚是米斯蒂娅的主场——',

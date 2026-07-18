@@ -154,7 +154,7 @@ export const SCATTER = {
 
 export const PLAYER = {
   hp: 150, hunger: 150, sanity: 200,
-  walk: 130, nightWalkBonus: 1.15,
+  walk: 190, nightWalkBonus: 1.15,
   attackPeriod: 0.45, range: 78,
   hungerPerDay: 75, starveDps: 1.25,
   songCooldown: 30, songCost: 15, songStun: 4, songRadius: 420,

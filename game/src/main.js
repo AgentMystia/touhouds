@@ -36,8 +36,14 @@ initInput(canvas);
 addEventListener('mousedown', unlockAudio, { once: true });
 addEventListener('keydown', unlockAudio, { once: true });
 
-onKey(code => {
+onKey((code, ev) => {
   if (ui.mode === 'game') {
+    if (code === 'Tab') {                 // TAB 开关制作栏
+      ev.preventDefault();
+      ui.craftOpen = !ui.craftOpen;
+      sfx('ui');
+      return;
+    }
     if (code === 'Escape') {
       if (ui.chestTarget || ui.yataiTarget) { ui.chestTarget = ui.yataiTarget = null; }
       else if (ui.craftOpen) ui.craftOpen = false;
@@ -48,7 +54,15 @@ onKey(code => {
     if (code === 'KeyE') {
       if (ui.chestTarget || ui.yataiTarget) { ui.chestTarget = ui.yataiTarget = null; sfx('ui'); }
     }
-    if (code === 'Space') { S.castSong(st); }
+    if (code === 'KeyC') { S.castSong(st); }       // C = 夜雀之歌
+    if (code === 'KeyF') {                         // F = 攻击（取消手中动作）
+      st.player.action = null;
+      S.playerAttack(st);
+    }
+    if (code === 'Space') {                        // 空格 = 采集/互动
+      ev.preventDefault();
+      smartInteract();
+    }
     if (code === 'KeyQ') quickEat();
     if (code === 'F5') { st.save(); st.msg('存档完成', '#a0e0ff'); }
     if (code.startsWith('Digit')) {
@@ -57,8 +71,42 @@ onKey(code => {
     }
   } else if (ui.mode === 'paused' && code === 'Escape') {
     ui.mode = 'game';
+  } else if (ui.mode === 'paused' && code === 'Tab') {
+    ev.preventDefault();
   }
 });
+
+// 空格智能互动：拾取 > 出锅/陷阱 > 采集/砍/挖 > 容器/添柴
+function smartInteract() {
+  const p = st.player;
+  if (p.dead || p.action || p.fishing) return;
+  if (ui.chestTarget || ui.yataiTarget) { ui.chestTarget = ui.yataiTarget = null; return; }
+  let best = null;
+  for (const e of st.entities) {
+    if (e.dead || e === p || e.hidden) continue;
+    const d = dist(p.x, p.y, e.x, e.y);
+    if (d > 100) continue;
+    let pri = -1, verb = null;
+    if (e.kind === 'drop') { pri = 100; verb = 'pickup'; }
+    else if (e.kind === 'natural' && !e.picked) {
+      const tool = p.equip.hand ? ITEMS[p.equip.hand.id].tool : null;
+      if (e.def.tool === 'chop') { if (tool === 'chop') { pri = 50; verb = 'chop'; } }
+      else if (e.def.tool === 'mine') { if (tool === 'mine') { pri = 50; verb = 'mine'; } }
+      else {
+        if (e.def.nightOnly && st.phase() !== PHASES.NIGHT) continue;  // 夜里才能采的静默跳过
+        pri = 60; verb = 'pick';
+      }
+    }
+    else if (e.kind === 'building') {
+      if (e.id === 'yatai') { pri = e.readyDish ? 95 : 40; verb = 'open_yatai'; }
+      else if (e.id === 'chest') { pri = 40; verb = 'open_chest'; }
+      else if ((e.id === 'campfire' || e.id === 'fire_pit') && !e.lit) { pri = 45; verb = 'fuel'; }
+      else if (e.id === 'trap' && e.trapCaught) { pri = 90; verb = 'trap_harvest'; }
+    }
+    if (verb && (!best || pri > best.pri || (pri === best.pri && d < best.d))) best = { e, pri, verb, d };
+  }
+  if (best) executeVerb({ entity: best.e, verb: best.verb });
+}
 
 function quickEat() {
   const p = st.player;
@@ -153,10 +201,15 @@ function update(dt, tNow) {
       if (Math.abs(mx) > 0.3) { p.dir = 'side'; p.face = mx > 0 ? 1 : -1; }
       if ((p.stepT = (p.stepT || 0) + dt) > 0.32) { p.stepT = 0; sfx('step'); }
     } else p.moving = false;
-    p.walkPh += 0; // keep
+    // 按住空格连续互动（砍树/采集自动续）、按住 F 连续攻击
+    if (keys.Space && !p.action && !p.fishing && !moving) smartInteract();
+    if (keys.KeyF) S.playerAttack(st);
   }
 
   // 点击目标自动寻路
+  if (ui.craftOpen) {
+    // 制作栏打开时也允许移动（不阻塞），但点击穿透已防
+  }
   updateClickMove(dt);
 
   st.rebuildGrid();
@@ -401,6 +454,7 @@ function handleUIClick() {
     if (mouse.x < h.x || mouse.x >= h.x + h.w || mouse.y < h.y || mouse.y >= h.y + h.h) continue;
     const d = h.data;
     sfx('ui');
+    if (d.type === 'panel') return true;   // 面板区域吞掉点击，防穿透
     if (d.type === 'craft_toggle') { ui.craftOpen = !ui.craftOpen; return true; }
     if (d.type === 'craft_tab') { ui.craftTab = d.tab; return true; }
     if (d.type === 'craft') {
@@ -464,6 +518,8 @@ function handleUIClick() {
     }
     return true;
   }
+  // 任何面板/容器打开时，点击不穿透到世界（绝不因点 UI 而移动）
+  if (ui.craftOpen || ui.chestTarget || ui.yataiTarget) return true;
   return false;
 }
 
