@@ -82,7 +82,8 @@ export const angleLerp = (a, b, t) => {
 export class Grid {
   constructor(cell = 128) { this.cell = cell; this.map = new Map(); }
   key(x, y) { return ((x / this.cell) | 0) * 100000 + ((y / this.cell) | 0); }
-  clear() { this.map.clear(); }
+  // 复用格子数组（每帧重建时避免整批数组重分配造成 GC 抖动）
+  clear() { for (const arr of this.map.values()) arr.length = 0; }
   insert(e) {
     const k = this.key(e.x, e.y);
     let arr = this.map.get(k);

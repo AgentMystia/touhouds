@@ -36,6 +36,15 @@ export class State {
     this.drops.length = 0; this.projectiles.length = 0;
     this.entities.push(this.player);
     this.world.scatterAll((id, x, y, r) => this.addNatural(id, x, y, r));
+    // 开局保底：出生点周围一圈必有燧石/树枝/草（防止种子不佳导致做不出斧镐）
+    const rnd = this.world.rnd;
+    const starter = ['flint_stone', 'flint_stone', 'flint_stone', 'sapling', 'sapling', 'grass_tuft', 'grass_tuft', 'boulder'];
+    starter.forEach((id, i) => {
+      const a = (i / starter.length) * Math.PI * 2 + rnd() * 0.5;
+      const d = 120 + rnd() * 160;
+      const x = sp.x + Math.cos(a) * d, y = sp.y + Math.sin(a) * d;
+      if (!this.world.isWater(x, y)) this.addNatural(id, x, y, rnd());
+    });
     // 幽香常驻花园
     this.spawnCreature('yuuka', this.world.garden.x, this.world.garden.y);
     this.yuukaSpawned = true;

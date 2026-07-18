@@ -82,7 +82,8 @@ function smartInteract() {
   if (p.dead || p.action || p.fishing) return;
   if (ui.chestTarget || ui.yataiTarget) { ui.chestTarget = ui.yataiTarget = null; return; }
   let best = null;
-  for (const e of st.entities) {
+  const near = st.grid.query(p.x, p.y, 100, st._sq || (st._sq = []));
+  for (const e of near) {
     if (e.dead || e === p || e.hidden) continue;
     const d = dist(p.x, p.y, e.x, e.y);
     if (d > 100) continue;
@@ -245,20 +246,22 @@ function update(dt, tNow) {
 }
 
 function pushOut(st, p) {
-  for (const arr of [st.naturals, st.buildings, st.creatures]) {
-    for (const e of arr) {
-      if (e.dead || e.picked && !e.stumpSprite) continue;
-      if (e.kind === 'creature' && (e.def.friendly || e.def.passive)) continue;
-      // 战斗中的大型生物不被玩家推开（Boss 要能贴身）
-      if (e.kind === 'creature' && (e.state === 'combat' || e.state === 'chase' || e.def.boss || e.def.miniboss)) continue;
-      const rr = (e.r || 10) + p.r - 4;
-      const d2 = dist2(p.x, p.y, e.x, e.y);
-      if (d2 < rr * rr && d2 > 0.01) {
-        const d = Math.sqrt(d2);
-        const push = (rr - d);
-        p.x += (p.x - e.x) / d * push * 0.7;
-        p.y += (p.y - e.y) / d * push * 0.7;
-      }
+  // 网格邻域查询代替全量三数组扫描（网格为上一帧重建，静态障碍位置不变，误差可忽略）
+  const near = st.grid.query(p.x, p.y, 80, st._pq || (st._pq = []));
+  for (const e of near) {
+    if (e === p || e.dead) continue;
+    if (e.kind !== 'natural' && e.kind !== 'building' && e.kind !== 'creature') continue;
+    if (e.picked && !e.stumpSprite) continue;
+    if (e.kind === 'creature' && (e.def.friendly || e.def.passive)) continue;
+    // 战斗中的大型生物不被玩家推开（Boss 要能贴身）
+    if (e.kind === 'creature' && (e.state === 'combat' || e.state === 'chase' || e.def.boss || e.def.miniboss)) continue;
+    const rr = (e.r || 10) + p.r - 4;
+    const d2 = dist2(p.x, p.y, e.x, e.y);
+    if (d2 < rr * rr && d2 > 0.01) {
+      const d = Math.sqrt(d2);
+      const push = (rr - d);
+      p.x += (p.x - e.x) / d * push * 0.7;
+      p.y += (p.y - e.y) / d * push * 0.7;
     }
   }
 }

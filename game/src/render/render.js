@@ -14,13 +14,18 @@ window.__defs_cache = { BIOME_INFO }; // paintGroundTile 用
 function groundTile(world, tx, ty) {
   const k = tx + ',' + ty;
   let c = tileCache.get(k);
-  if (!c) {
-    if (tileCache.size > 300) tileCache.clear(); // 简单 LRU
-    c = document.createElement('canvas');
-    c.width = TILE; c.height = TILE;
-    paintGroundTile(world, c, tx, ty, TILE);
-    tileCache.set(k, c);
+  if (c) {
+    tileCache.delete(k); tileCache.set(k, c); // 触碰刷新 LRU 序（Map 保持插入序）
+    return c;
   }
+  if (tileCache.size >= 64) { // 逐出最久未用的一块，而不是全清（全清会引发重绘风暴）；64 块 ≈ 64MB 上限
+    const oldest = tileCache.keys().next().value;
+    tileCache.delete(oldest);
+  }
+  c = document.createElement('canvas');
+  c.width = TILE; c.height = TILE;
+  paintGroundTile(world, c, tx, ty, TILE);
+  tileCache.set(k, c);
   return c;
 }
 
@@ -78,7 +83,7 @@ function drawShadow(ctx, sx, sy, rx, ry) {
 }
 
 function drawNatural(ctx, e, sx, sy, tNow) {
-  const key = e.stumpSprite || e.id;
+  const key = e.stumpSprite || e.def.sprite || e.id;
   if (e.picked && !e.stumpSprite) return; // 采完无桩→不画
   const spr = getSprite(key);
   const sc = scaleFor(e.id);
@@ -98,6 +103,14 @@ function drawNatural(ctx, e, sx, sy, tNow) {
     ctx.beginPath(); ctx.arc(sx, sy - 14, 26, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   }
+  if (e.id === 'berry_bush' && !e.picked) { // 与树苗共用精灵，点上浆果作区分
+    ctx.fillStyle = '#7a5a9a';
+    ctx.beginPath();
+    ctx.arc(sx - 10, sy - 52, 4, 0, Math.PI * 2);
+    ctx.arc(sx + 11, sy - 58, 4, 0, Math.PI * 2);
+    ctx.arc(sx + 1, sy - 70, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 function isTree(id) { return id === 'magic_tree' || id === 'pine' || id === 'bamboo' || id === 'sunflower'; }
 function scaleFor(id) {
@@ -108,6 +121,8 @@ function scaleFor(id) {
     case 'magic_tree_stump': case 'pine_stump': case 'bamboo_stump': return 1.0;
     case 'boulder': case 'gold_boulder': return 1.1;
     case 'sunflower': return 0.9;
+    case 'flint_stone': return 0.34;        // 图集帧是图标尺寸，地面燧石要小
+    case 'red_mushroom_patch': case 'ginseng_plant': return 0.5;
     default: return 1.0;
   }
 }
@@ -322,15 +337,16 @@ export function drawLighting(ctx, st, cam, W, H, tNow) {
   lctx.globalCompositeOperation = 'destination-out';
   const p = st.player;
   punchLight(lctx, p.x - cam.x, p.y - cam.y, phase === PHASES.NIGHT ? PLAYER.nightVision * 2.1 : 110, 0.85 + Math.sin(tNow * 2) * 0.05);
+  const onScreen = (x, y, r) => x > cam.x - r && x < cam.x + W + r && y > cam.y - r && y < cam.y + H + r;
   for (const b of st.buildings) {
-    if (!b.lit || b.dead) continue;
+    if (!b.lit || b.dead || !onScreen(b.x, b.y, 320)) continue;
     const r = (b.id === 'fire_pit' ? 300 : 240) * (0.9 + Math.sin(tNow * 9 + b.sway) * 0.05);
     punchLight(lctx, b.x - cam.x, b.y - cam.y, r, 1);
   }
   const h = p.equip.hand;
   if (h && h.id === 'torch') punchLight(lctx, p.x - cam.x, p.y - cam.y, 270, 0.95);
-  for (const n of st.naturals) {
-    if (n.id === 'glowshrooms' && !n.picked && phase === PHASES.NIGHT) {
+  if (phase === PHASES.NIGHT) for (const n of st.naturals) {
+    if (n.id === 'glowshrooms' && !n.picked && onScreen(n.x, n.y, 100)) {
       punchLight(lctx, n.x - cam.x, n.y - cam.y, 100, 0.5);
     }
   }

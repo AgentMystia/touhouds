@@ -138,6 +138,7 @@ export const NATURALS = {
   red_mushroom_patch: { name: '蘑菇', sprite: 'mushroom_tiny', tool: null, hits: 1, yield: { red_mushroom: 1 }, stump: null, respawn: 1 * DAY_LEN, r: 10 },
   sunflower: { name: '太阳花', sprite: 'sunflower', tool: null, hits: 1, yield: { petals: 2 }, stump: null, respawn: 1.2 * DAY_LEN, r: 12, sanityPick: 5 },
   boulder: { name: '岩石', sprite: 'boulder', tool: 'mine', hits: 8, yield: { stone: 2, flint: 1 }, stump: null, respawn: Infinity, r: 22 },
+  flint_stone: { name: '燧石', sprite: 'flint', tool: null, hits: 1, yield: { flint: 1 }, stump: null, respawn: 1.5 * DAY_LEN, r: 8 },
   gold_boulder: { name: '金矿石', sprite: 'gold_boulder', tool: 'mine', hits: 8, yield: { stone: 1, gold: 2 }, stump: null, respawn: Infinity, r: 22 },
   ginseng_plant: { name: '人参苗', sprite: 'grass_blades', tool: null, hits: 1, yield: { ginseng: 1 }, stump: null, respawn: 2 * DAY_LEN, r: 10 },
   berry_bush: { name: '暗莓丛', sprite: 'sapling', tool: null, hits: 1, yield: { dark_berries: 2 }, stump: null, respawn: 1.5 * DAY_LEN, r: 12, tint: '#7a5a9a' },
@@ -145,10 +146,10 @@ export const NATURALS = {
 
 // 群系 → 散布表 [naturalId, weight]
 export const SCATTER = {
-  [BIOME.FOREST]: [['magic_tree', 30], ['pine', 12], ['grass_tuft', 14], ['sapling', 10], ['glowshrooms', 8], ['red_mushroom_patch', 8], ['berry_bush', 5], ['ginseng_plant', 4]],
-  [BIOME.BAMBOO]: [['bamboo', 34], ['grass_tuft', 10], ['sapling', 10], ['ginseng_plant', 8], ['red_mushroom_patch', 4]],
-  [BIOME.FIELD]:  [['sunflower', 26], ['grass_tuft', 16], ['sapling', 8], ['ginseng_plant', 6], ['berry_bush', 4]],
-  [BIOME.HILL]:   [['boulder', 22], ['gold_boulder', 10], ['pine', 14], ['grass_tuft', 8], ['sapling', 8], ['red_mushroom_patch', 4]],
+  [BIOME.FOREST]: [['magic_tree', 30], ['pine', 12], ['grass_tuft', 14], ['sapling', 10], ['flint_stone', 7], ['glowshrooms', 8], ['red_mushroom_patch', 8], ['berry_bush', 5], ['ginseng_plant', 4], ['boulder', 2]],
+  [BIOME.BAMBOO]: [['bamboo', 34], ['grass_tuft', 10], ['sapling', 10], ['flint_stone', 5], ['ginseng_plant', 8], ['red_mushroom_patch', 4]],
+  [BIOME.FIELD]:  [['sunflower', 26], ['grass_tuft', 16], ['sapling', 8], ['flint_stone', 4], ['ginseng_plant', 6], ['berry_bush', 4]],
+  [BIOME.HILL]:   [['boulder', 22], ['gold_boulder', 10], ['pine', 14], ['flint_stone', 12], ['grass_tuft', 8], ['sapling', 8], ['red_mushroom_patch', 4]],
   [BIOME.GARDEN]: [['sunflower', 40]],
 };
 
